@@ -150,15 +150,15 @@ run_qemu() {
     -bios /usr/share/qemu/bios.bin \
     -machine q35,accel=kvm \
     -name $vmname \
-		-net nic,model=virtio \
+    -net nic,model=virtio \
     -net tap,ifname=$veth,script=no,downscript=no \
-		-usb -usbdevice host:$keyboard_id -usbdevice host:$mouse_id \
-		-device usb-kbd -device usb-mouse \
-		-device vfio-pci,host=$vfio_id_1,multifunction=on,x-vga=on \
-		-device vfio-pci,host=$vfio_id_2 \
-		-nographic \
+    -usb -usbdevice host:$keyboard_id -usbdevice host:$mouse_id \
+    -device usb-kbd -device usb-mouse \
+    -device vfio-pci,host=$vfio_id_1,multifunction=on,x-vga=on \
+    -device vfio-pci,host=$vfio_id_2 \
+    -nographic \
     -vga none
-		#-device vfio-pci,host=$vfio_id_1,multifunction=on,romfile=$romfile,x-vga=on \
+    #-device vfio-pci,host=$vfio_id_1,multifunction=on,romfile=$romfile,x-vga=on \
     #-device virtio-mouse-pci,id=input0 \
     #-device virtio-keyboard-pci,id=input1 \
     #-object input-linux,id=mouse1,evdev=$mouse \
