@@ -24,11 +24,11 @@ This page also assumes you've already set up your VFIO modules and ethernet brid
 More relevant material can be found here:
 
 
-https://forum.level1techs.com/t/ryzen-gpu-passthrough/116458/7 (original source of the main script)
-https://wiki.archlinux.org/index.php/QEMU
-https://bbs.archlinux.org/viewtopic.php?id=162768
-https://reddit.com/r/VFIO
-https://wiki.archlinux.org/index.php/PCI_passthrough_via_OVMF
+https://forum.level1techs.com/t/ryzen-gpu-passthrough/116458/7 (original source of the main script)  
+https://wiki.archlinux.org/index.php/QEMU  
+https://bbs.archlinux.org/viewtopic.php?id=162768  
+https://reddit.com/r/VFIO  
+https://wiki.archlinux.org/index.php/PCI_passthrough_via_OVMF  
 
 You can check your IOMMU groups with the included ```check_iommu.sh``` script.
 
