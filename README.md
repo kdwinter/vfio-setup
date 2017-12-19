@@ -8,6 +8,7 @@ helpful to anyone else setting this up.
 * Host OS: Arch Linux
 * VM OS: Windows 7 on a physical SSD
 * Guest GPU: NVIDIA GTX970
+* Plain QEMU without libvirt
 * SeaBIOS (no UEFI)
 * Using two monitors, one being turned off in the host OS and switched to the guest GPU when starting the VM.
 * Using Synergy (with server on the VM) to share keyboard and mouse. I recommend also having a backup keyboard connected, just in case.
@@ -18,6 +19,16 @@ rules so that it can actually access the vfio/usb devices.
 If you don't mind running as root, uncomment the export QEMU_PA_SERVER var
 and remove any instance of "sudo" in the script, and also remove the chmod/chown
 lines related to your disks in setup().
+
+This page also assumes you've already set up your VFIO modules and ethernet bridge and such as well.
+More relevant material can be found here:
+
+
+https://forum.level1techs.com/t/ryzen-gpu-passthrough/116458/7 (original source of the main script)
+https://wiki.archlinux.org/index.php/QEMU
+https://bbs.archlinux.org/viewtopic.php?id=162768
+https://reddit.com/r/VFIO
+https://wiki.archlinux.org/index.php/PCI_passthrough_via_OVMF
 
 You can check your IOMMU groups with the included ```check_iommu.sh``` script.
 
