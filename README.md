@@ -16,9 +16,7 @@ helpful to anyone else setting this up.
 To run this script as your user (not root), you have to create some udev
 rules so that it can actually access the vfio/usb devices.
 
-If you don't mind running as root, uncomment the `export QEMU_PA_SERVER` var,
-remove any instance of `sudo` in `windows7vm.sh`, and also remove the `chmod`/`chown`
-lines related to your disks in `setup()`.
+If you don't mind running as root, modify `windows7vm.sh` by uncommenting the `export QEMU_PA_SERVER` var, removing any instance of `sudo`, and also removing the `chmod`/`chown` lines related to your disks in `setup()`.
 
 This page also assumes you've already set up your VFIO modules and ethernet bridge and such as well.
 More relevant material can be found here:
