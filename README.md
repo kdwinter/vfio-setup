@@ -38,7 +38,7 @@ You can check your IOMMU groups with the included ```check_iommu.sh``` script.
 $ sudo usermod -a -G kvm <username>
 ```
 
-### Allow your user to run "ip", "brctl", and "nice" commands with sudo without prompting password:
+### Allow your user to run "ip" and "brctl" commands with sudo without prompting password:
 
 ```
 $ visudo
@@ -47,7 +47,7 @@ $ visudo
 Add these lines:
 
 ```
-Cmnd_Alias     QEMU = /usr/bin/ip, /usr/bin/brctl, /usr/bin/nice, /usr/bin/renice
+Cmnd_Alias     QEMU = /usr/bin/ip, /usr/bin/brctl
 %kvm ALL=(root) NOPASSWD: QEMU
 ```
 

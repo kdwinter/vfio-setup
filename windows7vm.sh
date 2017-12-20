@@ -24,7 +24,7 @@ veth="vmtap0"
 bridge="bridge0"
 
 # Amount of memory to grant VM
-memory="10G"
+memory="8G"
 
 # Amount of logical cores to grant VM
 cores="8"
@@ -168,7 +168,7 @@ run_qemu() {
   # Note that kvm=off and hv_vendor_id=whatever on the -cpu line are only
   # necessary if passing through a nvidia GPU.
 
-  exec sudo nice -n -20 sudo -u $username qemu-system-x86_64 \
+  exec qemu-system-x86_64 \
     -enable-kvm \
     -m $memory \
     -soundhw hda \
