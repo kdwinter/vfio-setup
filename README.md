@@ -52,7 +52,7 @@ Cmnd_Alias     QEMU = /usr/bin/ip, /usr/bin/brctl
 %kvm ALL=(root) NOPASSWD: QEMU
 ```
 
-### Tell udev to allow users to access VFIO and specific USB devices.
+### Tell udev to allow users to access VFIO and specific USB devices
 
 You can find the necessary idVendor and idProduct strings by running:
 
@@ -82,7 +82,7 @@ $ sudo udevadm control -R
 $ sudo udevadm trigger
 ```
 
-### Increase memory limits for your <username>
+### Increase memory limits for your \<username\>
 
 ```
 $ sudo vim /etc/security/limits.conf
@@ -95,7 +95,7 @@ Add these lines (with your username, and change the memory if needed, this is ar
 <username>	soft	memlock	9000000
 ```
 
-### Edit the vars at the top of ```windows7vm.sh``` as needed for your configuration.
+### Edit the vars at the top of ```windows7vm.sh``` as needed for your configuration
 
 
 ## Running
