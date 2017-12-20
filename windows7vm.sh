@@ -3,17 +3,18 @@
 # Arbitrary VM name
 vmname="win7"
 
-# Your host username (you can run this as root, but check comments below for that)
+# Your host username (you can run this as root, but check README and/or just edit
+# this script for that)
 username="gig"
 
 # Your host machine hostname (for Synergy; note that your synergy server
 # inside the VM needs to be setup to expect this client)
 hostname="archbox"
 
-# Hard drive being passed through
+# Windows drive being passed through
 disk="/dev/sdd"
 
-# Second disk...
+# Second disk... (if necessary)
 disk2="/dev/sde"
 
 # TAP interface being created/bridged. Name it whatever
@@ -23,7 +24,7 @@ veth="vmtap0"
 bridge="bridge0"
 
 # Amount of memory to grant VM
-memory="8G"
+memory="10G"
 
 # Amount of logical cores to grant VM
 cores="8"
@@ -104,9 +105,19 @@ setup() {
   echo "---> Switching displays"
   xrandr --output $primary_monitor --off
   xrandr --output $secondary_monitor --mode $secondary_monitor_resolution --pos 0x0 --primary
+
+  xset dpms force off
+  sleep 1
+  xset dpms force on
+
 }
 
+export vm_teardown_has_run
 teardown() {
+  if [[ -z "$vm_teardown_has_run" ]]; then
+    return 0
+  fi
+
   # We still care if things fail here, but the whole list should be run
   # through.
   set +e
@@ -124,6 +135,11 @@ teardown() {
   xrandr --output $primary_monitor --mode $primary_monitor_resolution --pos 0x0 --primary
   xrandr --output $secondary_monitor --mode $secondary_monitor_resolution --pos $(echo -n $primary_monitor_resolution | sed 's/x.*//g')x0
 
+  # Fix for DisplayPort monitor
+  xset dpms force off
+  sleep 1
+  xset dpms force on
+
   # These might not be necessary for you, but after shutting down the VM and
   # regaining control of these USB devices, these settings (keymap, mouse sens)
   # need to be re-set also...
@@ -137,9 +153,12 @@ teardown() {
   done <<< $(xinput list | grep "G Pro.*pointer" | awk '{print $8}' | sed "s/id=//")
 
   echo "[OK] Shutdown finished"
+
+  export vm_teardown_has_run="1"
 }
 
 quit() {
+  # Install openbsd-netcat (package name on Arch) for this.
   echo system_powerdown | nc -U $socket
   echo "!!!! Terminated"
 }
@@ -149,7 +168,7 @@ run_qemu() {
   # Note that kvm=off and hv_vendor_id=whatever on the -cpu line are only
   # necessary if passing through a nvidia GPU.
 
-  exec qemu-system-x86_64 \
+  exec sudo nice -n -20 sudo -u $username qemu-system-x86_64 \
     -enable-kvm \
     -m $memory \
     -soundhw hda \
