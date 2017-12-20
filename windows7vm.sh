@@ -94,6 +94,9 @@ setup() {
   echo "---> Adding $veth to $bridge"
   sudo brctl addif $bridge $veth
 
+  echo "---> Starting synergy"
+  synergyc --debug ERROR --name $hostname $vm_ip
+
   echo "---> Switching displays"
   xrandr --output $primary_monitor --off
   xrandr --output $secondary_monitor --mode $secondary_monitor_resolution --pos 0x0 --primary
@@ -126,11 +129,6 @@ teardown() {
   done <<< $(xinput list | grep "G Pro.*pointer" | awk '{print $8}' | sed "s/id=//")
 
   echo "[OK] Shutdown finished"
-}
-
-start_synergy() {
-  echo "---> Starting synergy"
-  synergyc --debug ERROR --name $hostname $vm_ip
 }
 
 quit() {
@@ -182,19 +180,7 @@ setup
 
 (run_qemu) &
 
-sleep 3
-
-while [[ $(pgrep qemu-system) ]]; do
-  if [[ ! $(pgrep synergyc) ]]; then
-    start_synergy
-  fi
-
-  sleep 3
-done
-
 trap "teardown" EXIT ERR INT
 trap "quit" TERM
 
 wait
-
-teardown
