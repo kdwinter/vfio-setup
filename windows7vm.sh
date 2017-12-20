@@ -59,6 +59,9 @@ pulseaudio_sink="bluez_sink.00_16_94_21_C1_07.a2dp_sink"
 # PulseAudio input
 pulseaudio_source="alsa_input.usb-BLUE_MICROPHONE_Blue_Snowball_201705-00.analog-mono"
 
+# Socket for QEMU console
+socket="/home/gig/qemu-win7.sock"
+
 ##############################################################################
 # Standard PulseAudio ENV variables
 # You can find your sink/source by running:
@@ -131,6 +134,7 @@ start_synergy() {
 }
 
 quit() {
+  echo system_powerdown | nc -U $socket
   echo "!!!! Terminated"
 }
 
@@ -157,7 +161,8 @@ run_qemu() {
     -device vfio-pci,host=$vfio_id_1,multifunction=on,x-vga=on \
     -device vfio-pci,host=$vfio_id_2 \
     -nographic \
-    -vga none
+    -vga none \
+    -monitor unix:$socket,server,nowait
     #-device vfio-pci,host=$vfio_id_1,multifunction=on,romfile=$romfile,x-vga=on \
     #-device virtio-mouse-pci,id=input0 \
     #-device virtio-keyboard-pci,id=input1 \
