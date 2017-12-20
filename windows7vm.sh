@@ -31,6 +31,8 @@ cores="8"
 # GPU BIOS ROM (possibly not needed)
 romfile="/storage/vms/nvidia_msi_gtx970.rom"
 
+# FIXME: Microphone should probably be passed through as a USB device instead,
+# since this doesn't work yet.
 # USB keyboard ID (check lsusb)
 keyboard_id="1b1c:1b07"
 
@@ -57,6 +59,8 @@ vm_ip="192.168.0.201"
 pulseaudio_sink="bluez_sink.00_16_94_21_C1_07.a2dp_sink"
 
 # PulseAudio input
+# FIXME: Microphone should probably be passed through as a USB device instead,
+# since this doesn't work yet.
 pulseaudio_source="alsa_input.usb-BLUE_MICROPHONE_Blue_Snowball_201705-00.analog-mono"
 
 # Socket for QEMU console
@@ -103,6 +107,10 @@ setup() {
 }
 
 teardown() {
+  # We still care if things fail here, but the whole list should be run
+  # through.
+  set +e
+
   echo "---> Removing $veth from $bridge"
   sudo brctl delif $bridge $veth
   echo "---> Removing $veth tap device"

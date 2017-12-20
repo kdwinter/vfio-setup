@@ -18,9 +18,8 @@ rules so that it can actually access the vfio/usb devices.
 
 If you don't mind running as root, modify `windows7vm.sh` by uncommenting the `export QEMU_PA_SERVER` var, removing any instance of `sudo`, and also removing the `chmod`/`chown` lines related to your disks in `setup()`.
 
-This page also assumes you've already set up your VFIO modules and ethernet bridge and such as well.
-More relevant material can be found here:
-
+This page assumes you've already enabled IOMMU, set up your VFIO modules, ethernet bridge and such as well.
+More relevant resources can be found here:
 
 https://forum.level1techs.com/t/ryzen-gpu-passthrough/116458/7 (original source of the main script)  
 https://wiki.archlinux.org/index.php/QEMU  
