@@ -112,12 +112,7 @@ setup() {
 
 }
 
-export vm_teardown_has_run
 teardown() {
-  if [[ -z "$vm_teardown_has_run" ]]; then
-    return 0
-  fi
-
   # We still care if things fail here, but the whole list should be run
   # through.
   set +e
@@ -153,8 +148,6 @@ teardown() {
   done <<< $(xinput list | grep "G Pro.*pointer" | awk '{print $8}' | sed "s/id=//")
 
   echo "[OK] Shutdown finished"
-
-  export vm_teardown_has_run="1"
 }
 
 quit() {
