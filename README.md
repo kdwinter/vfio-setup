@@ -1,17 +1,17 @@
 # My VFIO setup
 
-This is my personal VFIO setup. It is here in the hope that it can be
-helpful to anyone else setting this up.
+This is my personal VFIO setup. It is here in the hope that some bits and
+pieces can be helpful to anyone else setting up VFIO/PCI Passthrough.
 
 ## Details
 
 * Host OS: Arch Linux
 * VM OS: Windows 7 on a physical SSD
 * Guest GPU: NVIDIA GTX970
-* Plain QEMU without libvirt
+* `qemu-patched` (for CPU pinning) from AUR without libvirt
 * SeaBIOS (no UEFI)
-* Using two monitors, one being turned off in the host OS and switched to the guest GPU when starting the VM.
-* Using Synergy (with server on the VM) to share keyboard and mouse. I recommend also having a backup keyboard connected, just in case.
+* Dual monitor, one being turned off in host and switched to guest GPU when starting the VM.
+* Using Synergy (server running in VM guest) to share keyboard and mouse. Recommend still having another backup keyboard connected to your host, in case something goes wrong.
 
 To run this script as your user (not root), you have to create some udev
 rules so that it can actually access the vfio/usb devices.
@@ -59,7 +59,9 @@ You can find the necessary idVendor and idProduct strings by running:
 $ sudo udevadm info -a -p $(udevadm info -q path -n /dev/input/by-id/<keyboard or mouse>)
 ```
 
-Then, add the rules:
+You can also extract the vendor:product pairs from `lsusb`.
+
+Then, add the rules (replace the ID's with your own):
 
 ```
 $ sudo vim /etc/udev/rules.d/10-qemu-hw-users.rules
@@ -81,17 +83,17 @@ $ sudo udevadm control -R
 $ sudo udevadm trigger
 ```
 
-### Increase memory limits for your \<username\>
+### Increase memory limits for your user
 
 ```
 $ sudo vim /etc/security/limits.conf
 ```
 
-Add these lines (with your username, and change the memory if needed, this is around 9GB):
+Add these lines (replace username with yours, and change the amount if needed, this is around 9GB):
 
 ```
-<username>	hard	memlock	9000000
-<username>	soft	memlock	9000000
+username	hard	memlock	9000000
+username	soft	memlock	9000000
 ```
 
 ### Edit the vars at the top of ```windows7vm.sh``` as needed for your configuration

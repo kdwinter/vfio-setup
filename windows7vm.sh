@@ -26,19 +26,17 @@ bridge="bridge0"
 # Amount of memory to grant VM
 memory="8G"
 
-# Amount of logical cores to grant VM
-cores="8"
-
 # GPU BIOS ROM (possibly not needed)
 romfile="/storage/vms/nvidia_msi_gtx970.rom"
 
-# FIXME: Microphone should probably be passed through as a USB device instead,
-# since this doesn't work yet.
 # USB keyboard ID (check lsusb)
 keyboard_id="1b1c:1b07"
 
 # USB mouse ID (check lsusb)
 mouse_id="046d:c085"
+
+# USB microphone ID (check lsusb)
+microphone_id="0d8c:0005"
 
 # GPU VFIO ids (check your iommu groups)
 vfio_id_1="0f:00.0"
@@ -74,6 +72,7 @@ socket="/home/gig/qemu-win7.sock"
 # $ pactl list
 
 export QEMU_AUDIO_DRV="pa"
+export QEMU_PA_SAMPLES=1024
 export QEMU_PA_SINK="$pulseaudio_sink"
 export QEMU_PA_SOURCE="$pulseaudio_source"
 # Uncomment if running as root
@@ -105,11 +104,6 @@ setup() {
   echo "---> Switching displays"
   xrandr --output $primary_monitor --off
   xrandr --output $secondary_monitor --mode $secondary_monitor_resolution --pos 0x0 --primary
-
-  xset dpms force off
-  sleep 1
-  xset dpms force on
-
 }
 
 teardown() {
@@ -129,11 +123,6 @@ teardown() {
   echo "---> Restoring displays"
   xrandr --output $primary_monitor --mode $primary_monitor_resolution --pos 0x0 --primary
   xrandr --output $secondary_monitor --mode $secondary_monitor_resolution --pos $(echo -n $primary_monitor_resolution | sed 's/x.*//g')x0
-
-  # Fix for DisplayPort monitor
-  xset dpms force off
-  sleep 1
-  xset dpms force on
 
   # These might not be necessary for you, but after shutting down the VM and
   # regaining control of these USB devices, these settings (keymap, mouse sens)
@@ -166,7 +155,11 @@ run_qemu() {
     -m $memory \
     -soundhw hda \
     -cpu host,kvm=off,hv_relaxed,hv_spinlocks=0x1fff,hv_vapic,hv_time,hv_vendor_id=whatever \
-    -smp cores=$cores,threads=1,sockets=1,maxcpus=12 \
+    -smp cores=4,threads=2,sockets=1,maxcpus=12 \
+    -vcpu vcpunum=0,affinity=1 -vcpu vcpunum=1,affinity=2 \
+    -vcpu vcpunum=2,affinity=3 -vcpu vcpunum=3,affinity=4 \
+    -vcpu vcpunum=4,affinity=5 -vcpu vcpunum=5,affinity=6 \
+    -vcpu vcpunum=6,affinity=7 -vcpu vcpunum=7,affinity=8 \
     -drive file=$disk,if=virtio,index=0 \
     -drive file=$disk2,if=virtio,index=1 \
     -bios /usr/share/qemu/bios.bin \
@@ -174,7 +167,7 @@ run_qemu() {
     -name $vmname \
     -net nic,model=virtio \
     -net tap,ifname=$veth,script=no,downscript=no \
-    -usb -usbdevice host:$keyboard_id -usbdevice host:$mouse_id \
+    -usb -usbdevice host:$keyboard_id -usbdevice host:$mouse_id -usbdevice host:$microphone_id \
     -device usb-kbd -device usb-mouse \
     -device vfio-pci,host=$vfio_id_1,multifunction=on,x-vga=on \
     -device vfio-pci,host=$vfio_id_2 \
