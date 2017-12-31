@@ -42,7 +42,7 @@ microphone_id="0d8c:0005"
 vfio_id_1="0f:00.0"
 vfio_id_2="0f:00.1"
 
-# Default primary monitor, also the 8e to be given to the VM
+# Default primary monitor, also the one to be used by the VM
 primary_monitor="DisplayPort-0"
 primary_monitor_resolution="2560x1440"
 
@@ -148,7 +148,7 @@ quit() {
 run_qemu() {
   echo "---> Starting QEMU"
   # Note that kvm=off and hv_vendor_id=whatever on the -cpu line are only
-  # necessary if passing through a nvidia GPU.
+  # necessary for nvidia GPUs.
 
   exec qemu-system-x86_64 \
     -enable-kvm \
@@ -156,10 +156,14 @@ run_qemu() {
     -soundhw hda \
     -cpu host,kvm=off,hv_relaxed,hv_spinlocks=0x1fff,hv_vapic,hv_time,hv_vendor_id=whatever \
     -smp cores=4,threads=2,sockets=1,maxcpus=12 \
-    -vcpu vcpunum=0,affinity=1 -vcpu vcpunum=1,affinity=2 \
-    -vcpu vcpunum=2,affinity=3 -vcpu vcpunum=3,affinity=4 \
-    -vcpu vcpunum=4,affinity=5 -vcpu vcpunum=5,affinity=6 \
-    -vcpu vcpunum=6,affinity=7 -vcpu vcpunum=7,affinity=8 \
+    -vcpu vcpunum=0,affinity=1 \
+    -vcpu vcpunum=1,affinity=3 \
+    -vcpu vcpunum=2,affinity=5 \
+    -vcpu vcpunum=3,affinity=7 \
+    -vcpu vcpunum=4,affinity=9 \
+    -vcpu vcpunum=5,affinity=11 \
+    -vcpu vcpunum=6,affinity=13 \
+    -vcpu vcpunum=7,affinity=15 \
     -drive file=$disk,if=virtio,index=0 \
     -drive file=$disk2,if=virtio,index=1 \
     -bios /usr/share/qemu/bios.bin \
