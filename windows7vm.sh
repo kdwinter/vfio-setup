@@ -5,17 +5,14 @@ vmname="win7"
 
 # Your host username (you can run this as root, but check README and/or just edit
 # this script for that)
-username="gig"
+username=$(whoami)
 
 # Your host machine hostname (for Synergy; note that your synergy server
 # inside the VM needs to be setup to expect this client)
-hostname="archbox"
+hostname=$(hostname)
 
-# Windows drive being passed through
-disk="/dev/sdd"
-
-# Second disk... (if necessary)
-disk2="/dev/sde"
+# Drives being used. Make sure the Windows drive is first
+drives=("/dev/sdd" "/dev/sde")
 
 # TAP interface being created/bridged. Name it whatever
 veth="vmtap0"
@@ -58,8 +55,7 @@ vm_ip="192.168.0.201"
 pulseaudio_sink="bluez_sink.00_16_94_21_C1_07.a2dp_sink"
 
 # PulseAudio input
-# FIXME: Microphone should probably be passed through as a USB device instead,
-# since this doesn't work yet.
+# FIXME: This is currently useless
 pulseaudio_source="alsa_input.usb-BLUE_MICROPHONE_Blue_Snowball_201705-00.analog-mono"
 
 # Socket for QEMU console
@@ -84,11 +80,11 @@ setup() {
   echo ">>>> Beginning VM setup"
 
   # Remove these if running as root
-  echo "---> Fixing $disk permissions"
-  sudo chmod g-w $disk
-  sudo chown $username $disk
-  sudo chmod g-w $disk2
-  sudo chown $username $disk2
+  for drive in $drives; do
+    echo "---> Fixing $drive permissions"
+    sudo chmod g-w $drive
+    sudo chown $username $drive
+  done
 
   echo "---> Creating $veth tap device"
   sudo ip tuntap add dev $veth mode tap
@@ -107,8 +103,7 @@ setup() {
 }
 
 teardown() {
-  # We still care if things fail here, but the whole list should be run
-  # through.
+  # Still care if things fail here, but the whole list should be run through.
   set +e
 
   echo "---> Removing $veth from $bridge"
@@ -136,20 +131,26 @@ teardown() {
     xinput set-prop $mouse_id 'libinput Accel Speed' -0.66 >/dev/null 2<&1
   done <<< $(xinput list | grep "G Pro.*pointer" | awk '{print $8}' | sed "s/id=//")
 
-  echo "[OK] Shutdown finished"
+  echo "[OK] VM teardown completed"
 }
 
 quit() {
-  # Install openbsd-netcat (package name on Arch) for this.
+  # Install openbsd-netcat for this.
   echo system_powerdown | nc -U $socket
   echo "!!!! Terminated"
 }
 
 run_qemu() {
   echo "---> Starting QEMU"
-  # Note that kvm=off and hv_vendor_id=whatever on the -cpu line are only
-  # necessary for nvidia GPUs.
 
+  drive_options=""
+  for i in "${!drives[@]}"; do
+    drive_options=" $drive_options -drive file=${drives[$i]},if=virtio,index=$i"
+  done
+
+  # Note that kvm=off and hv_vendor_id=whatever on the -cpu line are only
+  # necessary for nvidia GPUs, to prevent their drivers from self-sabotaging
+  # once they detect a virtualized environment (Error 43).
   exec qemu-system-x86_64 \
     -enable-kvm \
     -m $memory \
@@ -164,8 +165,7 @@ run_qemu() {
     -vcpu vcpunum=5,affinity=11 \
     -vcpu vcpunum=6,affinity=13 \
     -vcpu vcpunum=7,affinity=15 \
-    -drive file=$disk,if=virtio,index=0 \
-    -drive file=$disk2,if=virtio,index=1 \
+    $drive_options \
     -bios /usr/share/qemu/bios.bin \
     -machine q35,accel=kvm \
     -name $vmname \

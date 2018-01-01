@@ -5,20 +5,19 @@ pieces can be helpful to anyone else setting up VFIO/PCI Passthrough.
 
 ## Details
 
-* Host OS: Arch Linux
-* VM OS: Windows 7 on a physical SSD
+* Host OS: Arch Linux x86_64
+* VM OS: Windows 7 64-bit on a physical SSD. Still bootable by itself also
 * Guest GPU: NVIDIA GTX970
-* `qemu-patched` (for CPU pinning) from AUR without libvirt
-* SeaBIOS (no UEFI)
-* Dual monitor, one being turned off in host and switched to guest GPU when starting the VM.
-* Using Synergy (server running in VM guest) to share keyboard and mouse. Recommend still having another backup keyboard connected to your host, in case something goes wrong.
-
-To run this script as your user (not root), you have to create some udev
-rules so that it can actually access the vfio/usb devices.
-
-If you don't mind running as root, modify `windows7vm.sh` by uncommenting the `export QEMU_PA_SERVER` var, removing any instance of `sudo`, and also removing the `chmod`/`chown` lines related to your disks in `setup()`.
+* Using [`qemu-patched`](https://aur.archlinux.org/packages/qemu-patched/) for CPU pinning
+* Not using libvirt
+* Using BIOS mode instead of UEFI; mostly because my existing Windows drive was installed this way
+* Dual monitor, one being turned off in host and switched to guest GPU when starting VM
+* Using Synergy, server running in guest, to share keyboard and mouse. Recommend still having another backup keyboard connected to your host, in case something goes wrong
+* Running QEMU as non-root user
 
 This page assumes you've already enabled IOMMU, set up your VFIO modules, ethernet bridge and such as well.
+If needed, you can check your IOMMU groups with the included `check_iommu.sh` script (taken from the [Arch Wiki](https://wiki.archlinux.org/index.php/PCI_passthrough_via_OVMF#Ensuring_that_the_groups_are_valid)).
+
 More relevant resources can be found here:
 
 https://forum.level1techs.com/t/ryzen-gpu-passthrough/116458/7 (original source of the main script)  
@@ -27,18 +26,16 @@ https://bbs.archlinux.org/viewtopic.php?id=162768
 https://reddit.com/r/VFIO  
 https://wiki.archlinux.org/index.php/PCI_passthrough_via_OVMF  
 
-You can check your IOMMU groups with the included ```check_iommu.sh``` script.
 
-
-## Setup
+## Prerequisites, configuration, and setup
 
 ### Add your user to the kvm group
 
 ```
-$ sudo usermod -a -G kvm <username>
+$ sudo usermod -a -G kvm yourusername
 ```
 
-### Allow your user to run "ip" and "brctl" commands with sudo without prompting password:
+### Allow your user to run "sudo ip" and "sudo brctl" commands **without** prompting password:
 
 ```
 $ visudo
@@ -51,7 +48,7 @@ Cmnd_Alias     QEMU = /usr/bin/ip, /usr/bin/brctl
 %kvm ALL=(root) NOPASSWD: QEMU
 ```
 
-### Tell udev to allow users to access VFIO and specific USB devices
+### Tell udev to allow non-root users to access VFIO and specific USB devices
 
 You can find the necessary idVendor and idProduct strings by running:
 
@@ -96,7 +93,7 @@ username	hard	memlock	9000000
 username	soft	memlock	9000000
 ```
 
-### Edit the vars at the top of ```windows7vm.sh``` as needed for your configuration
+### Edit `windows7vm.sh` to suit your configuration
 
 
 ## Running
@@ -104,6 +101,12 @@ username	soft	memlock	9000000
 ```
 ./windows7vm.sh
 ```
+
+## Known issues (TODO)
+
+* VM audio is delayed by ~100ms, most noticable in Quake Live. Have not yet tried audio modes other than `hda` to see if that fixes the issue.
+* Synergy does not fully play nice with i3. Pressing Windows+L while host has focus results in the guest receiving that combination and locking the screen.
+* Synergy has to be stopped/paused on the host while playing certain games (even first-person shooters), to prevent the mouse from reaching into the host while playing.
 
 
 ## License
