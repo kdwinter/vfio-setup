@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/usr/bin/bash -e
 
 # Arbitrary VM name
 vmname="win7"
@@ -12,7 +12,7 @@ username=$(whoami)
 hostname=$(hostname)
 
 # Drives being used. Make sure the Windows drive is first
-drives=("/dev/sdd" "/dev/sde")
+drives=("/dev/sdd" "/dev/sde" "/dev/sda")
 
 # TAP interface being created/bridged. Name it whatever
 veth="vmtap0"
@@ -51,6 +51,8 @@ secondary_monitor_resolution="1920x1200"
 vm_ip="192.168.0.201"
 
 # PulseAudio output
+# You can find your sink/source by running:
+# $ pactl list
 #pulseaudio_sink="alsa_output.pci-0000_12_00.3.analog-surround-51"
 pulseaudio_sink="bluez_sink.00_16_94_21_C1_07.a2dp_sink"
 
@@ -63,12 +65,9 @@ socket="/home/gig/qemu-win7.sock"
 
 ##############################################################################
 # Standard PulseAudio ENV variables
-# You can find your sink/source by running:
-#
-# $ pactl list
 
 export QEMU_AUDIO_DRV="pa"
-export QEMU_PA_SAMPLES=1024
+export QEMU_PA_SAMPLES=2048
 export QEMU_PA_SINK="$pulseaudio_sink"
 export QEMU_PA_SOURCE="$pulseaudio_source"
 # Uncomment if running as root
@@ -77,17 +76,17 @@ export QEMU_PA_SOURCE="$pulseaudio_source"
 ##############################################################################
 
 setup() {
-  echo ">>>> Beginning VM setup"
+  echo "> Beginning VM setup"
 
   # Remove these if running as root
-  for drive in $drives; do
+  for drive in "${drives[@]}"; do
     echo "---> Fixing $drive permissions"
     sudo chmod g-w $drive
     sudo chown $username $drive
   done
 
   echo "---> Creating $veth tap device"
-  sudo ip tuntap add dev $veth mode tap
+  sudo ip tuntap add dev $veth mode tap user $username group kvm
   sudo ip link set $veth up
   # think this is useless actually
   sudo ip addr add 192.168.0.223 dev $veth
@@ -100,6 +99,11 @@ setup() {
   echo "---> Switching displays"
   xrandr --output $primary_monitor --off
   xrandr --output $secondary_monitor --mode $secondary_monitor_resolution --pos 0x0 --primary
+
+  #echo "---> Setting up Looking Glass"
+  #sudo touch /dev/shm/looking-glass
+  #sudo chown $username:kvm /dev/shm/looking-glass
+  #sudo chmod 660 /dev/shm/looking-glass
 }
 
 teardown() {
@@ -131,13 +135,13 @@ teardown() {
     xinput set-prop $mouse_id 'libinput Accel Speed' -0.66 >/dev/null 2<&1
   done <<< $(xinput list | grep "G Pro.*pointer" | awk '{print $8}' | sed "s/id=//")
 
-  echo "[OK] VM teardown completed"
+  echo "✓ VM teardown completed"
 }
 
 quit() {
   # Install openbsd-netcat for this.
-  echo system_powerdown | nc -U $socket
-  echo "!!!! Terminated"
+  echo "system_powerdown" | nc -U $socket
+  echo "! Terminated"
 }
 
 run_qemu() {
@@ -169,8 +173,8 @@ run_qemu() {
     -bios /usr/share/qemu/bios.bin \
     -machine q35,accel=kvm \
     -name $vmname \
-    -net nic,model=virtio \
-    -net tap,ifname=$veth,script=no,downscript=no \
+    -net nic,macaddr=52:54:0F:1E:3D:4C,model=virtio \
+    -net tap,ifname=$veth,script=no,downscript=no,vhost=on \
     -usb -usbdevice host:$keyboard_id -usbdevice host:$mouse_id -usbdevice host:$microphone_id \
     -device usb-kbd -device usb-mouse \
     -device vfio-pci,host=$vfio_id_1,multifunction=on,x-vga=on \
@@ -178,6 +182,8 @@ run_qemu() {
     -nographic \
     -vga none \
     -monitor unix:$socket,server,nowait
+    #-device ivshmem-plain,memdev=ivshmem \
+    #-object memory-backend-file,id=ivshmem,share=on,mem-path=/dev/shm/looking-glass,size=32M \
     #-device vfio-pci,host=$vfio_id_1,multifunction=on,romfile=$romfile,x-vga=on \
     #-device virtio-mouse-pci,id=input0 \
     #-device virtio-keyboard-pci,id=input1 \
