@@ -32,8 +32,11 @@ keyboard_id="1b1c:1b07"
 # USB mouse ID (check lsusb)
 mouse_id="046d:c085"
 
-# USB microphone ID (check lsusb)
+# USB microphone ID
 microphone_id="0d8c:0005"
+
+# USB->Ethernet dongle ID
+usb_network_id="0b95:1790"
 
 # GPU VFIO ids (check your iommu groups)
 vfio_id_1="0f:00.0"
@@ -48,7 +51,12 @@ secondary_monitor="DVI-D-0"
 secondary_monitor_resolution="1920x1200"
 
 # Guest VM IP (for synergy)
-vm_ip="192.168.0.201"
+vm_ip=""
+if lsusb | grep -q $usb_network_id; then
+  vm_ip="192.168.0.131"
+else
+  vm_ip="192.168.0.239"
+fi
 
 # PulseAudio output
 # You can find your sink/source by running:
@@ -61,13 +69,13 @@ pulseaudio_sink="bluez_sink.00_16_94_21_C1_07.a2dp_sink"
 pulseaudio_source="alsa_input.usb-BLUE_MICROPHONE_Blue_Snowball_201705-00.analog-mono"
 
 # Socket for QEMU console
-socket="/home/gig/qemu-win7.sock"
+socket="/home/$username/qemu-$vmname.sock"
 
 ##############################################################################
 # Standard PulseAudio ENV variables
 
 export QEMU_AUDIO_DRV="pa"
-export QEMU_PA_SAMPLES=2048
+export QEMU_PA_SAMPLES=4096
 export QEMU_PA_SINK="$pulseaudio_sink"
 export QEMU_PA_SOURCE="$pulseaudio_source"
 # Uncomment if running as root
@@ -86,10 +94,10 @@ setup() {
   done
 
   echo "---> Creating $veth tap device"
-  sudo ip tuntap add dev $veth mode tap user $username group kvm
+  sudo ip tuntap add dev $veth mode tap
+  # user $username group kvm
   sudo ip link set $veth up
-  # think this is useless actually
-  sudo ip addr add 192.168.0.223 dev $veth
+  #sudo ip addr add 192.168.0.223 dev $veth
   echo "---> Adding $veth to $bridge"
   sudo brctl addif $bridge $veth
 
@@ -152,6 +160,12 @@ run_qemu() {
     drive_options=" $drive_options -drive file=${drives[$i]},if=virtio,index=$i"
   done
 
+  # USB->Ethernet dongle
+  usb_devices="-usbdevice host:$keyboard_id -usbdevice host:$mouse_id -usbdevice host:$microphone_id"
+  if lsusb | grep -q $usb_network_id; then
+    usb_devices="$usb_devices -usbdevice host:$usb_network_id"
+  fi
+
   # Note that kvm=off and hv_vendor_id=whatever on the -cpu line are only
   # necessary for nvidia GPUs, to prevent their drivers from self-sabotaging
   # once they detect a virtualized environment (Error 43).
@@ -160,7 +174,7 @@ run_qemu() {
     -m $memory \
     -soundhw hda \
     -cpu host,kvm=off,hv_relaxed,hv_spinlocks=0x1fff,hv_vapic,hv_time,hv_vendor_id=whatever \
-    -smp cores=4,threads=2,sockets=1,maxcpus=12 \
+    -smp cores=6,threads=2,sockets=1,maxcpus=12 \
     -vcpu vcpunum=0,affinity=1 \
     -vcpu vcpunum=1,affinity=3 \
     -vcpu vcpunum=2,affinity=5 \
@@ -175,13 +189,16 @@ run_qemu() {
     -name $vmname \
     -net nic,macaddr=52:54:0F:1E:3D:4C,model=virtio \
     -net tap,ifname=$veth,script=no,downscript=no,vhost=on \
-    -usb -usbdevice host:$keyboard_id -usbdevice host:$mouse_id -usbdevice host:$microphone_id \
+    -usb $usb_devices \
     -device usb-kbd -device usb-mouse \
     -device vfio-pci,host=$vfio_id_1,multifunction=on,x-vga=on \
     -device vfio-pci,host=$vfio_id_2 \
     -nographic \
     -vga none \
     -monitor unix:$socket,server,nowait
+
+    #-netdev tap,fd=25,id=hostnet0 \
+    #-device rtl8139,netdev=hostnet0,id=net0,mac=52:54:0F:1E:3D:4C,bus=pci.0,addr=0x3 \
     #-device ivshmem-plain,memdev=ivshmem \
     #-object memory-backend-file,id=ivshmem,share=on,mem-path=/dev/shm/looking-glass,size=32M \
     #-device vfio-pci,host=$vfio_id_1,multifunction=on,romfile=$romfile,x-vga=on \
