@@ -12,16 +12,15 @@ username=$(whoami)
 hostname=$(hostname)
 
 # Drives being used. Make sure the Windows drive is first
-drives=("/dev/sdd" "/dev/sde" "/dev/sda")
+drives=($(realpath "/dev/disk/by-id/ata-M4-CT256M4SSD2_00000000123609151EB7")
+        $(realpath "/dev/disk/by-id/ata-WDC_WD2500KS-00MJB0_WD-WCANK8625812"))
+#$(realpath "/dev/disk/by-id/ata-WDC_WD1002FAEX-00Z3A0_WD-WCATR5247372"))
 
 # TAP interface being created/bridged. Name it whatever
 veth="vmtap0"
 
 # Name of an existing bridge that already includes your ethernet connection
 bridge="bridge0"
-
-# Amount of memory to grant VM
-memory="8G"
 
 # GPU BIOS ROM (possibly not needed)
 romfile="/storage/vms/nvidia_msi_gtx970.rom"
@@ -140,7 +139,7 @@ teardown() {
   xset m 0 0
   # Change this to the name of your mouse (if needed at all)
   while read -r mouse_id; do
-    xinput set-prop $mouse_id 'libinput Accel Speed' -0.66 >/dev/null 2<&1
+    xinput set-prop $mouse_id 'libinput Accel Speed' 0 >/dev/null 2<&1
   done <<< $(xinput list | grep "G Pro.*pointer" | awk '{print $8}' | sed "s/id=//")
 
   echo "✓ VM teardown completed"
@@ -171,7 +170,7 @@ run_qemu() {
   # once they detect a virtualized environment (Error 43).
   exec qemu-system-x86_64 \
     -enable-kvm \
-    -m $memory \
+    -m 10G \
     -soundhw hda \
     -cpu host,kvm=off,hv_relaxed,hv_spinlocks=0x1fff,hv_vapic,hv_time,hv_vendor_id=whatever \
     -smp cores=6,threads=2,sockets=1,maxcpus=12 \
@@ -179,10 +178,14 @@ run_qemu() {
     -vcpu vcpunum=1,affinity=3 \
     -vcpu vcpunum=2,affinity=5 \
     -vcpu vcpunum=3,affinity=7 \
-    -vcpu vcpunum=4,affinity=9 \
-    -vcpu vcpunum=5,affinity=11 \
-    -vcpu vcpunum=6,affinity=13 \
-    -vcpu vcpunum=7,affinity=15 \
+    -vcpu vcpunum=4,affinity=8 \
+    -vcpu vcpunum=5,affinity=9 \
+    -vcpu vcpunum=6,affinity=10 \
+    -vcpu vcpunum=7,affinity=11 \
+    -vcpu vcpunum=8,affinity=12 \
+    -vcpu vcpunum=9,affinity=13 \
+    -vcpu vcpunum=10,affinity=14 \
+    -vcpu vcpunum=11,affinity=15 \
     $drive_options \
     -bios /usr/share/qemu/bios.bin \
     -machine q35,accel=kvm \
