@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 shopt -s nullglob
 
@@ -7,3 +7,5 @@ for d in /sys/kernel/iommu_groups/*/devices/*; do
     printf 'IOMMU Group %s ' "$n"
     lspci -nns "${d##*/}"
 done;
+
+# vim:ts=4 sw=4 sts=4 expandtab

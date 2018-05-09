@@ -111,4 +111,4 @@ username	soft	memlock	9000000
 
 ## License
 
-Public domain.
+See UNLICENSE.
