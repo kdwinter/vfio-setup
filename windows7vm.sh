@@ -1,30 +1,31 @@
 #!/usr/bin/env bash
 # vim:ts=4:sw=4:sts=4:expandtab:ft=sh:
-set -e
+set -euo pipefail
+shopt -s nullglob globstar
 
 # Arbitrary VM name
 vmname="win7"
 
 # Your host username (you can run this as root, but check README and/or just edit
 # this script for that)
-username=$(whoami)
+username="$(whoami)"
 
 # Your host machine hostname (for Synergy; note that your synergy server
 # inside the VM needs to be setup to expect this client)
-hostname=$(hostname)
+hostname="$(hostname)"
 
 # Drives being used. Make sure the Windows drive is first
-drives=($(realpath "/dev/disk/by-id/ata-M4-CT256M4SSD2_00000000123609151EB7")
-        $(realpath "/dev/disk/by-id/ata-WDC_WD2500KS-00MJB0_WD-WCANK8625812"))
+drives=("$(realpath "/dev/disk/by-id/ata-M4-CT256M4SSD2_00000000123609151EB7")"
+        "$(realpath "/dev/disk/by-id/ata-WDC_WD2500KS-00MJB0_WD-WCANK8625812")")
 
 # TAP interface being created/bridged. Name it whatever
 veth="vmtap0"
 
-# Name of an existing bridge that already includes your ethernet connection
+# Name of an existing bridge that already includes your internet connection
 bridge="bridge0"
 
-# GPU BIOS ROM (possibly not needed)
-romfile="/data/vms/nvidia_msi_gtx970.rom"
+# GPU BIOS ROM (not necessary currently)
+#romfile="/data/vms/nvidia_msi_gtx970.rom"
 
 # USB keyboard ID (check lsusb)
 #keyboard_id="1b1c:1b07"
@@ -53,7 +54,7 @@ secondary_monitor_resolution="2560x1440"
 
 # Guest VM IP (for synergy)
 vm_ip=""
-if lsusb | grep -q $usb_network_id; then
+if lsusb | grep -q "$usb_network_id"; then
     vm_ip="192.168.0.131"
 else
     vm_ip="192.168.0.239"
@@ -66,11 +67,18 @@ fi
 pulseaudio_sink="bluez_sink.00_16_94_21_C1_07.a2dp_sink"
 
 # PulseAudio input
-# FIXME: This is currently useless
+# NOTE: This is completely useless. Also passing microphone through via USB
+#       instead
 pulseaudio_source="alsa_input.usb-BLUE_MICROPHONE_Blue_Snowball_201705-00.analog-mono"
 
 # Socket for QEMU console
-socket="/home/$username/qemu-$vmname.sock"
+socket="$HOME/qemu-$vmname.sock"
+
+if [ -e "$socket" ]; then
+    echo "! Bailing because a socket file exists at '$socket'."
+    echo "  Was there an unclean shutdown, or is the VM already running?"
+    exit 1
+fi
 
 ##############################################################################
 # Standard PulseAudio ENV variables
@@ -90,28 +98,28 @@ setup() {
     # Remove these if running as root
     for drive in "${drives[@]}"; do
         echo "---> Fixing $drive permissions"
-        sudo chmod g-w $drive
-        sudo chown $username $drive
+        sudo chmod g-w "$drive"
+        sudo chown "$username" "$drive"
     done
 
     echo "---> Creating $veth tap device"
-    sudo ip tuntap add dev $veth mode tap
+    sudo ip tuntap add dev "$veth" mode tap
     # user $username group kvm
-    sudo ip link set $veth up
-    #sudo ip addr add 192.168.0.223 dev $veth
+    sudo ip link set "$veth" up
+    #sudo ip addr add 192.168.0.223 dev "$veth"
     echo "---> Adding $veth to $bridge"
-    sudo brctl addif $bridge $veth
+    sudo brctl addif "$bridge" "$veth"
 
     echo "---> Starting synergy"
-    synergyc --debug ERROR --name $hostname $vm_ip
+    synergyc --debug ERROR --name "$hostname" "$vm_ip"
 
     echo "---> Switching displays"
-    xrandr --output $primary_monitor --off
-    xrandr --output $secondary_monitor --mode $secondary_monitor_resolution --pos 0x0 --primary
+    xrandr --output "$primary_monitor" --off
+    xrandr --output "$secondary_monitor" --mode "$secondary_monitor_resolution" --pos 0x0 --primary
 
     #echo "---> Setting up Looking Glass"
     #sudo touch /dev/shm/looking-glass
-    #sudo chown $username:kvm /dev/shm/looking-glass
+    #sudo chown "$username":kvm /dev/shm/looking-glass
     #sudo chmod 660 /dev/shm/looking-glass
 }
 
@@ -120,17 +128,17 @@ teardown() {
     set +e
 
     echo "---> Removing $veth from $bridge"
-    sudo brctl delif $bridge $veth
+    sudo brctl delif "$bridge" "$veth"
     echo "---> Removing $veth tap device"
-    sudo ip link set $veth down
-    sudo ip tuntap del dev $veth mode tap
+    sudo ip link set "$veth" down
+    sudo ip tuntap del dev "$veth" mode tap
 
     echo "---> Killing synergy"
     killall synergyc
 
     echo "---> Restoring displays"
-    xrandr --output $primary_monitor --mode $primary_monitor_resolution --pos 0x0 --primary
-    xrandr --output $secondary_monitor --mode $secondary_monitor_resolution --pos $(echo -n $primary_monitor_resolution | sed 's/x.*//g')x0
+    xrandr --output "$primary_monitor" --mode "$primary_monitor_resolution" --pos 0x0 --primary
+    xrandr --output "$secondary_monitor" --mode "$secondary_monitor_resolution" --pos "$(echo -n "$primary_monitor_resolution" | sed 's/x.*//g')"x0
 
     # These might not be necessary for you, but after shutting down the VM and
     # regaining control of these USB devices, these settings (keymap, mouse sens)
@@ -141,15 +149,20 @@ teardown() {
     xset m 0 0
     # Change this to the name of your mouse (if needed at all)
     while read -r mouse_id; do
-        xinput set-prop $mouse_id 'libinput Accel Speed' 0 >/dev/null 2<&1
-    done <<< $(xinput list | grep "G Pro.*pointer" | awk '{print $8}' | sed "s/id=//")
+        xinput set-prop "$mouse_id" 'libinput Accel Speed' 0 >/dev/null 2<&1
+    done <<< "$(xinput list | grep "G Pro.*pointer" | awk '{print $8}' | sed "s/id=//")"
+
+    if [ -e "$socket" ]; then
+        echo "---> Removing socket"
+        rm -f "$socket"
+    fi
 
     echo "✓ VM teardown completed"
 }
 
 quit() {
     # Install openbsd-netcat for this.
-    echo "system_powerdown" | nc -U $socket
+    echo "system_powerdown" | nc -U "$socket"
     echo "! Terminated"
 }
 
@@ -163,7 +176,7 @@ run_qemu() {
 
     usb_devices="-device usb-host,$keyboard_id -device usb-host,$mouse_id -device usb-host,$microphone_id"
     # USB->Ethernet dongle
-    if lsusb | grep -q $usb_network_id; then
+    if lsusb | grep -q "$usb_network_id"; then
         usb_devices="$usb_devices -device usb-host,$usb_network_id"
     fi
 
