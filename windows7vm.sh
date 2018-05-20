@@ -1,7 +1,20 @@
 #!/usr/bin/env bash
-# vim:ts=4:sw=4:sts=4:expandtab:ft=sh:
+# vim:ts=4:sw=4:sts=4:et:ft=sh:
 set -euo pipefail
 shopt -s nullglob globstar
+
+err() {
+    say "$@" >&2
+}
+
+say() {
+    echo "[$(date +"%Y-%m-%dT%H:%M:%S%z")]: $@"
+}
+
+vendorproductpair_to_qemu() {
+    local vendorproductpair="$1"
+    echo -n "vendorid=0x$(echo "$vendorproductpair" | cut -c1-4),productid=0x$(echo "$vendorproductpair" | cut -c6-10)"
+}
 
 # Arbitrary VM name
 vmname="win7"
@@ -29,16 +42,16 @@ bridge="bridge0"
 
 # USB keyboard ID (check lsusb)
 #keyboard_id="1b1c:1b07"
-keyboard_id="vendorid=0x045e,productid=0x00db"
+keyboard_id="045e:00db"
 
 # USB mouse ID (check lsusb)
-mouse_id="vendorid=0x046d,productid=0xc085"
+mouse_id="046d:c085"
 
 # USB microphone ID
-microphone_id="vendorid=0x0d8c,productid=0x0005"
+microphone_id="0d8c:0005"
 
-# USB->Ethernet dongle ID
-usb_network_id="vendorid=0x0b95,productid=0x1790"
+# USB network dongle
+usb_network_id="0b95:1790"
 
 # GPU VFIO ids (check your iommu groups)
 vfio_id_1="2e:00.0"
@@ -75,8 +88,8 @@ pulseaudio_source="alsa_input.usb-BLUE_MICROPHONE_Blue_Snowball_201705-00.analog
 socket="$HOME/qemu-$vmname.sock"
 
 if [ -e "$socket" ]; then
-    echo "! Bailing because a socket file exists at '$socket'."
-    echo "  Was there an unclean shutdown, or is the VM already running?"
+    err "✗ Bailing because a QEMU socket file exists for this VM at '$socket'."
+    err "  Was there an unclean shutdown, or is the VM already running?"
     exit 1
 fi
 
@@ -93,31 +106,31 @@ export QEMU_PA_SOURCE="$pulseaudio_source"
 ##############################################################################
 
 setup() {
-    echo "> Beginning VM setup"
+    say "Beginning VM setup"
 
     # Remove these if running as root
     for drive in "${drives[@]}"; do
-        echo "---> Fixing $drive permissions"
+        say "---> Fixing $drive permissions"
         sudo chmod g-w "$drive"
         sudo chown "$username" "$drive"
     done
 
-    echo "---> Creating $veth tap device"
+    say "Creating $veth tap device"
     sudo ip tuntap add dev "$veth" mode tap
     # user $username group kvm
     sudo ip link set "$veth" up
     #sudo ip addr add 192.168.0.223 dev "$veth"
-    echo "---> Adding $veth to $bridge"
+    say "Adding $veth to $bridge"
     sudo brctl addif "$bridge" "$veth"
 
-    echo "---> Starting synergy"
+    say "Starting synergy"
     synergyc --debug ERROR --name "$hostname" "$vm_ip"
 
-    echo "---> Switching displays"
+    say "Switching displays"
     xrandr --output "$primary_monitor" --off
     xrandr --output "$secondary_monitor" --mode "$secondary_monitor_resolution" --pos 0x0 --primary
 
-    #echo "---> Setting up Looking Glass"
+    #say "Setting up Looking Glass"
     #sudo touch /dev/shm/looking-glass
     #sudo chown "$username":kvm /dev/shm/looking-glass
     #sudo chmod 660 /dev/shm/looking-glass
@@ -127,23 +140,23 @@ teardown() {
     # Still care if things fail here, but the whole list should be run through.
     set +e
 
-    echo "---> Removing $veth from $bridge"
+    say "Removing $veth from $bridge"
     sudo brctl delif "$bridge" "$veth"
-    echo "---> Removing $veth tap device"
+    say "Removing $veth tap device"
     sudo ip link set "$veth" down
     sudo ip tuntap del dev "$veth" mode tap
 
-    echo "---> Killing synergy"
+    say "Killing synergy"
     killall synergyc
 
-    echo "---> Restoring displays"
+    say "Restoring displays"
     xrandr --output "$primary_monitor" --mode "$primary_monitor_resolution" --pos 0x0 --primary
     xrandr --output "$secondary_monitor" --mode "$secondary_monitor_resolution" --pos "$(echo -n "$primary_monitor_resolution" | sed 's/x.*//g')"x0
 
     # These might not be necessary for you, but after shutting down the VM and
     # regaining control of these USB devices, these settings (keymap, mouse sens)
     # need to be re-set also...
-    echo "---> Restoring USB keyboard and mouse settings (layout, rates, sensitivity)"
+    say "Restoring USB keyboard and mouse settings (layout, rates, sensitivity)"
     setxkbmap be
     xset r rate 350 40
     xset m 0 0
@@ -153,31 +166,34 @@ teardown() {
     done <<< "$(xinput list | grep "G Pro.*pointer" | awk '{print $8}' | sed "s/id=//")"
 
     if [ -e "$socket" ]; then
-        echo "---> Removing socket"
+        say "Removing socket"
         rm -f "$socket"
     fi
 
-    echo "✓ VM teardown completed"
+    say "✓ VM teardown completed"
+
+    set -e
 }
 
 quit() {
     # Install openbsd-netcat for this.
     echo "system_powerdown" | nc -U "$socket"
-    echo "! Terminated"
+    err "✗ Terminated"
 }
 
 run_qemu() {
-    echo "---> Starting QEMU"
+    say "Starting QEMU"
 
     drive_options=""
     for i in "${!drives[@]}"; do
         drive_options=" $drive_options -drive file=${drives[$i]},if=virtio,index=$i"
     done
 
-    usb_devices="-device usb-host,$keyboard_id -device usb-host,$mouse_id -device usb-host,$microphone_id"
+    usb_devices="-device usb-host,$(vendorproductpair_to_qemu "$keyboard_id") -device usb-host,$(vendorproductpair_to_qemu "$mouse_id") -device usb-host,$(vendorproductpair_to_qemu "$microphone_id")"
+
     # USB->Ethernet dongle
     if lsusb | grep -q "$usb_network_id"; then
-        usb_devices="$usb_devices -device usb-host,$usb_network_id"
+        usb_devices="$usb_devices -device usb-host,$(vendorproductpair_to_qemu "$usb_network_id")"
     fi
 
     # Note that kvm=off and hv_vendor_id=whatever on the -cpu line are only

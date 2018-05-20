@@ -35,7 +35,10 @@ https://wiki.archlinux.org/index.php/PCI_passthrough_via_OVMF
 $ sudo usermod -a -G kvm yourusername
 ```
 
-### Allow your user to run "sudo ip" and "sudo brctl" commands **without** prompting password:
+### (optional/QoL) Allow your user to run "sudo ip" and "sudo brctl" commands **without** prompting password:
+
+This is only necessary if you want the teardown function to run without
+additional sudo password prompts.
 
 ```
 $ visudo
