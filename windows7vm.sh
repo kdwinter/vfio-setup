@@ -8,9 +8,16 @@ err() {
 }
 
 say() {
-    echo "[$(date +"%Y-%m-%dT%H:%M:%S%z")]: $@"
+    echo "[$(date +"%Y-%m-%dT%H:%M:%S%z")]: $*"
 }
 
+# QEMU 2.12 finally removed the `-usbdevice` option; `-device usb-host` has taken
+# its place with a slightly different syntax. This is just a helper function
+# that takes the 'old' product pairs, and returns them in the proper usb-host
+# option format.
+#
+#   vendorproductpair_to_qemu "0001:0002" #=> "vendorid=0x0001,productid=0x0002"
+#
 vendorproductpair_to_qemu() {
     local vendorproductpair="$1"
     echo -n "vendorid=0x$(echo "$vendorproductpair" | cut -c1-4),productid=0x$(echo "$vendorproductpair" | cut -c6-10)"
@@ -23,13 +30,13 @@ vmname="win7"
 # this script for that)
 username="$(whoami)"
 
-# Your host machine hostname (for Synergy; note that your synergy server
+# Your host machine hostname (for Synergy; note that your Synergy server
 # inside the VM needs to be setup to expect this client)
 hostname="$(hostname)"
 
 # Drives being used. Make sure the Windows drive is first
-drives=("$(realpath "/dev/disk/by-id/ata-M4-CT256M4SSD2_00000000123609151EB7")"
-        "$(realpath "/dev/disk/by-id/ata-WDC_WD2500KS-00MJB0_WD-WCANK8625812")")
+drives=("$(realpath "/dev/disk/by-id/ata-M4-CT256M4SSD2_00000000123609151EB7")")
+#        "$(realpath "/dev/disk/by-id/ata-WDC_WD2500KS-00MJB0_WD-WCANK8625812")")
 
 # TAP interface being created/bridged. Name it whatever
 veth="vmtap0"
@@ -42,10 +49,12 @@ bridge="bridge0"
 
 # USB keyboard ID (check lsusb)
 #keyboard_id="1b1c:1b07"
-keyboard_id="045e:00db"
+#keyboard_id="045e:00db"
+keyboard_id="04d9:0296"
 
 # USB mouse ID (check lsusb)
-mouse_id="046d:c085"
+#mouse_id="046d:c085"
+mouse_id="04a5:8001"
 
 # USB microphone ID
 microphone_id="0d8c:0005"
@@ -68,7 +77,8 @@ secondary_monitor_resolution="2560x1440"
 # Guest VM IP (for synergy)
 vm_ip=""
 if lsusb | grep -q "$usb_network_id"; then
-    vm_ip="192.168.0.131"
+    #vm_ip="192.168.0.131"
+    vm_ip="192.168.178.24"
 else
     vm_ip="192.168.0.239"
 fi
@@ -76,13 +86,13 @@ fi
 # PulseAudio output
 # You can find your sink/source by running:
 # $ pactl list
-#pulseaudio_sink="alsa_output.pci-0000_12_00.3.analog-surround-51"
+#pulseaudio_sink="alsa_output.pci-0000_30_00.3.analog-stereo"
 pulseaudio_sink="bluez_sink.00_16_94_21_C1_07.a2dp_sink"
 
 # PulseAudio input
 # NOTE: This is completely useless. Also passing microphone through via USB
 #       instead
-pulseaudio_source="alsa_input.usb-BLUE_MICROPHONE_Blue_Snowball_201705-00.analog-mono"
+#pulseaudio_source="alsa_input.usb-BLUE_MICROPHONE_Blue_Snowball_201705-00.analog-mono"
 
 # Socket for QEMU console
 socket="$HOME/qemu-$vmname.sock"
@@ -99,7 +109,7 @@ fi
 export QEMU_AUDIO_DRV="pa"
 export QEMU_PA_SAMPLES=4096
 export QEMU_PA_SINK="$pulseaudio_sink"
-export QEMU_PA_SOURCE="$pulseaudio_source"
+#export QEMU_PA_SOURCE="$pulseaudio_source"
 # Uncomment if running as root
 #export QEMU_PA_SERVER="/run/user/1000/pulse/native"
 
@@ -114,6 +124,7 @@ setup() {
         sudo chmod g-w "$drive"
         sudo chown "$username" "$drive"
     done
+    unset drive
 
     say "Creating $veth tap device"
     sudo ip tuntap add dev "$veth" mode tap
@@ -146,7 +157,7 @@ teardown() {
     sudo ip link set "$veth" down
     sudo ip tuntap del dev "$veth" mode tap
 
-    say "Killing synergy"
+    say "Terminating synergy"
     killall synergyc
 
     say "Restoring displays"
@@ -163,10 +174,10 @@ teardown() {
     # Change this to the name of your mouse (if needed at all)
     while read -r mouse_id; do
         xinput set-prop "$mouse_id" 'libinput Accel Speed' 0 >/dev/null 2<&1
-    done <<< "$(xinput list | grep "G Pro.*pointer" | awk '{print $8}' | sed "s/id=//")"
+    done <<< "$(xinput list | grep "ZOWIE" | awk '{print $9}' | sed "s/id=//")"
 
     if [ -e "$socket" ]; then
-        say "Removing socket"
+        say "Removing zombie socket"
         rm -f "$socket"
     fi
 
@@ -188,6 +199,7 @@ run_qemu() {
     for i in "${!drives[@]}"; do
         drive_options=" $drive_options -drive file=${drives[$i]},if=virtio,index=$i"
     done
+    unset i
 
     usb_devices="-device usb-host,$(vendorproductpair_to_qemu "$keyboard_id") -device usb-host,$(vendorproductpair_to_qemu "$mouse_id") -device usb-host,$(vendorproductpair_to_qemu "$microphone_id")"
 
@@ -201,7 +213,7 @@ run_qemu() {
     # once they detect a virtualized environment (Error 43).
     exec qemu-system-x86_64 \
         -enable-kvm \
-        -m 10G \
+        -m 8G \
         -soundhw hda \
         -cpu host,kvm=off,hv_relaxed,hv_spinlocks=0x1fff,hv_vapic,hv_time,hv_vendor_id=whatever \
         -smp cores=6,threads=2,sockets=1,maxcpus=12 \
