@@ -87,7 +87,7 @@ fi
 # You can find your sink/source by running:
 # $ pactl list
 #pulseaudio_sink="alsa_output.pci-0000_30_00.3.analog-stereo"
-pulseaudio_sink="bluez_sink.00_16_94_21_C1_07.a2dp_sink"
+#pulseaudio_sink="bluez_sink.00_16_94_21_C1_07.a2dp_sink"
 
 # PulseAudio input
 # NOTE: This is completely useless. Also passing microphone through via USB
@@ -106,9 +106,9 @@ fi
 ##############################################################################
 # Standard PulseAudio ENV variables
 
-export QEMU_AUDIO_DRV="pa"
-export QEMU_PA_SAMPLES=4096
-export QEMU_PA_SINK="$pulseaudio_sink"
+#export QEMU_AUDIO_DRV="pa"
+#export QEMU_PA_SAMPLES=4096
+#export QEMU_PA_SINK="$pulseaudio_sink"
 #export QEMU_PA_SOURCE="$pulseaudio_source"
 # Uncomment if running as root
 #export QEMU_PA_SERVER="/run/user/1000/pulse/native"
@@ -168,7 +168,7 @@ teardown() {
     # regaining control of these USB devices, these settings (keymap, mouse sens)
     # need to be re-set also...
     say "Restoring USB keyboard and mouse settings (layout, rates, sensitivity)"
-    setxkbmap be
+    setxkbmap be -option caps:none
     xset r rate 350 40
     xset m 0 0
     # Change this to the name of your mouse (if needed at all)
@@ -211,24 +211,12 @@ run_qemu() {
     # Note that kvm=off and hv_vendor_id=whatever on the -cpu line are only
     # necessary for nvidia GPUs, to prevent their drivers from self-sabotaging
     # once they detect a virtualized environment (Error 43).
-    exec qemu-system-x86_64 \
+    exec taskset -c 1,3,4,7,8-15 qemu-system-x86_64 \
         -enable-kvm \
         -m 8G \
         -soundhw hda \
         -cpu host,kvm=off,hv_relaxed,hv_spinlocks=0x1fff,hv_vapic,hv_time,hv_vendor_id=whatever \
         -smp cores=6,threads=2,sockets=1,maxcpus=12 \
-        -vcpu vcpunum=0,affinity=1 \
-        -vcpu vcpunum=1,affinity=3 \
-        -vcpu vcpunum=2,affinity=5 \
-        -vcpu vcpunum=3,affinity=7 \
-        -vcpu vcpunum=4,affinity=8 \
-        -vcpu vcpunum=5,affinity=9 \
-        -vcpu vcpunum=6,affinity=10 \
-        -vcpu vcpunum=7,affinity=11 \
-        -vcpu vcpunum=8,affinity=12 \
-        -vcpu vcpunum=9,affinity=13 \
-        -vcpu vcpunum=10,affinity=14 \
-        -vcpu vcpunum=11,affinity=15 \
         $drive_options \
         -bios /usr/share/qemu/bios.bin \
         -machine q35,accel=kvm \
@@ -239,9 +227,23 @@ run_qemu() {
         -device usb-kbd -device usb-mouse \
         -device vfio-pci,host=$vfio_id_1,multifunction=on,x-vga=on \
         -device vfio-pci,host=$vfio_id_2 \
+        -audiodev pa,id=pa1,server=/run/user/1000/pulse/native \
         -nographic \
         -vga none \
         -monitor unix:$socket,server,nowait
+
+        #-vcpu vcpunum=0,affinity=1 \
+        #-vcpu vcpunum=1,affinity=3 \
+        #-vcpu vcpunum=2,affinity=5 \
+        #-vcpu vcpunum=3,affinity=7 \
+        #-vcpu vcpunum=4,affinity=8 \
+        #-vcpu vcpunum=5,affinity=9 \
+        #-vcpu vcpunum=6,affinity=10 \
+        #-vcpu vcpunum=7,affinity=11 \
+        #-vcpu vcpunum=8,affinity=12 \
+        #-vcpu vcpunum=9,affinity=13 \
+        #-vcpu vcpunum=10,affinity=14 \
+        #-vcpu vcpunum=11,affinity=15 \
 
         #-netdev tap,fd=25,id=hostnet0 \
         #-device rtl8139,netdev=hostnet0,id=net0,mac=52:54:0F:1E:3D:4C,bus=pci.0,addr=0x3 \

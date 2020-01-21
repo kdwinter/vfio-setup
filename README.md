@@ -8,7 +8,6 @@ pieces can be helpful to anyone else setting up VFIO/PCI Passthrough.
 * Host OS: Arch Linux x86_64
 * VM OS: Windows 7 64-bit on a physical SSD. Still bootable by itself also
 * Guest GPU: NVIDIA GTX970
-* Using [`qemu-patched`](https://aur.archlinux.org/packages/qemu-patched/) for CPU pinning
 * Not using libvirt
 * Using BIOS mode instead of UEFI; mostly because my existing Windows drive was installed this way
 * Dual monitor, one being turned off in host and switched to guest GPU when starting VM
